@@ -1,0 +1,29 @@
+body {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #000;
+    color: #fff;
+}
+
+#game-container {
+    text-align: center;
+}
+
+#game {
+    width: 800px;
+    height: 600px;
+    background-color: #222;
+    margin-bottom: 10px;
+}
+
+#controls button, #start-pause button {
+    margin: 5px;
+    padding: 10px;
+}
+
+#player-health, #enemy-health {
+    margin-top: 10px;
+}
