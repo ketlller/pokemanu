@@ -2,121 +2,361 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Слот для казино KAIROS</title>
+    <title>Pokemon Fight Game</title>
     <style>
         body {
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background-color: #000;
-            color: #fff;
-            font-family: Arial, sans-serif;
             margin: 0;
+            background-color: #000;
         }
-        .slot-machine {
-            text-align: center;
-        }
-        .reels {
-            display: flex;
-            justify-content: center;
-            margin: 20px 0;
-        }
-        .reel {
-            width: 100px;
-            height: 300px;
-            margin: 0 10px;
-            overflow: hidden;
+        #game-container {
             position: relative;
-        }
-        .reel div {
-            width: 100%;
-            height: 100px;
+            width: 800px;
+            height: 600px;
+            background-image: url('background.png'); /* Имя файла вашего фонового изображения */
             background-size: cover;
-            position: absolute;
-            transition: top 0.5s;
+            background-repeat: no-repeat;
         }
-        .balance {
-            margin: 20px 0;
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
         }
         button {
-            padding: 10px 20px;
+            padding: 10px;
+            margin: 5px;
             font-size: 16px;
+            border: none;
+            cursor: pointer;
+            color: white;
+        }
+        #up, #down {
+            background-color: blue;
+        }
+        #throw {
+            background-color: orange;
+        }
+        #restart {
+            background-color: red;
+        }
+        #start {
+            background-color: green;
+        }
+        #pause {
+            background-color: red;
+        }
+        #hud {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            max-width: 800px; /* Устанавливаем максимальную ширину для HUD */
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 20px;
+            color: white;
+            font-size: 18px;
+            background-color: black; /* Черный фон для HUD */
+            box-sizing: border-box;
         }
     </style>
 </head>
 <body>
-    <div class="slot-machine">
-        <h1>Слот для казино KAIROS</h1>
-        <div class="reels">
-            <div class="reel" id="reel1">
-                <div style="top: 0;"></div>
-                <div style="top: 100px;"></div>
-                <div style="top: 200px;"></div>
-            </div>
-            <div class="reel" id="reel2">
-                <div style="top: 0;"></div>
-                <div style="top: 100px;"></div>
-                <div style="top: 200px;"></div>
-            </div>
-            <div class="reel" id="reel3">
-                <div style="top: 0;"></div>
-                <div style="top: 100px;"></div>
-                <div style="top: 200px;"></div>
-            </div>
+    <div id="game-container">
+        <div id="hud">
+            <div id="player1-health">Player 1 Score: 0</div>
+            <div id="timer">Time: 30</div>
+            <div id="player2-health">Player 2 Score: 0</div>
         </div>
-        <div class="balance">
-            Баланс: $<span id="balance">100</span>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="controls">
+            <button id="up">Up</button>
+            <button id="down">Down</button>
+            <button id="throw">Throw</button>
+            <button id="restart">Restart Game</button>
+            <button id="start">Start</button>
+            <button id="pause">Pause</button>
         </div>
-        <button onclick="spin()">Спин</button>
     </div>
 
     <script>
-        const symbols = ['fruit', 'bell', 'seven', 'coin', 'star', 'diamond'];
-        const symbolImages = {
-            'fruit': 'fruit.png',
-            'bell': 'bell.png',
-            'seven': 'seven.png',
-            'coin': 'coin.png',
-            'star': 'star.png',
-            'diamond': 'diamond.png'
-        };
-        const BET_AMOUNT = 10;
-        let balance = 100;
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
 
-        function getRandomSymbol() {
-            return symbols[Math.floor(Math.random() * symbols.length)];
+        const player1Image = new Image();
+        player1Image.src = 'pikachu.png'; // Имя файла вашего изображения
+        const player2Image = new Image();
+        player2Image.src = 'charmander.png'; // Имя файла вашего изображения
+        const appleImage = new Image();
+        appleImage.src = 'apple.png'; // Имя файла вашего изображения яблока
+
+        const hitSound = new Audio('hit.mp3'); // Имя файла звука попадания
+        const gameOverSound = new Audio('gameover.mp3'); // Имя файла звука конца игры
+
+        const player1 = { x: 100, y: 300, width: 100, height: 100, score: 0, image: player1Image, apples: [] };
+        const player2 = { x: 650, y: 300, width: 100, height: 100, score: 0, image: player2Image, apples: [], direction: 1 };
+
+        const topBoundary = 50; // Верхняя граница (ниже надписи Player)
+        const bottomBoundary = 510; // Нижняя граница (выше кнопки Старт)
+
+        let gameRunning = false;
+        let gamePaused = false;
+        let gameTime = 30; // Время игры в секундах
+        let timerInterval;
+
+        function drawPlayer(player) {
+            if (player.visible !== false) {
+                ctx.drawImage(player.image, player.x, player.y, player.width, player.height);
+            }
         }
 
-        function spin() {
-            const reels = [
-                document.getElementById('reel1'),
-                document.getElementById('reel2'),
-                document.getElementById('reel3')
-            ];
-            const balanceElement = document.getElementById('balance');
+        function drawApple(apple) {
+            ctx.save();
+            ctx.translate(apple.x + apple.width / 2, apple.y + apple.height / 2);
+            ctx.rotate(apple.rotation);
+            ctx.drawImage(appleImage, -apple.width / 2, -apple.height / 2, apple.width, apple.height);
+            ctx.restore();
+        }
 
-            let results = [];
+        function updateHealthDisplay() {
+            document.getElementById('player1-health').innerText = `Player 1 Score: ${player1.score}`;
+            document.getElementById('player2-health').innerText = `Player 2 Score: ${player2.score}`;
+            document.getElementById('timer').innerText = `Time: ${gameTime}`;
+        }
 
-            reels.forEach(reel => {
-                let result = [getRandomSymbol(), getRandomSymbol(), getRandomSymbol()];
-                results.push(result);
-                result.forEach((symbol, index) => {
-                    let div = reel.children[index];
-                    div.style.backgroundImage = `url(${symbolImages[symbol]})`;
-                    div.style.top = `${index * 100}px`;
+        function gameLoop() {
+            if (gameRunning && !gamePaused) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawPlayer(player1);
+                drawPlayer(player2);
+                player1.apples.forEach(drawApple);
+                player2.apples.forEach(drawApple);
+                moveAI(player2);
+                moveApples();
+                checkAppleHits();
+                checkWinCondition();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                if (!gamePaused) {
+                    gameTime--;
+                    updateHealthDisplay();
+                    if (gameTime <= 0) {
+                        endGame();
+                    }
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            gameRunning = false;
+            let winner;
+            let loser;
+            if (player1.score > player2.score) {
+                winner = 'Player 1';
+                loser = player2;
+            } else if (player2.score > player1.score) {
+                winner = 'Player 2';
+                loser = player1;
+            } else {
+                alert('It\'s a tie!');
+                resetGame();
+                return;
+            }
+            gameOverSound.play();
+            explodePlayer(loser, () => {
+                alert(`${winner} wins!\nPlayer 1 Score: ${player1.score}\nPlayer 2 Score: ${player2.score}`);
+                resetGame();
+            });
+        }
+
+        function explodePlayer(player, callback) {
+            player.visible = false;
+            const pieces = [];
+            for (let i = 0; i < 20; i++) {
+                for (let j = 0; j < 20; j++) {
+                    pieces.push({
+                        x: player.x + (i * player.width) / 20,
+                        y: player.y + (j * player.height) / 20,
+                        width: player.width / 20,
+                        height: player.height / 20,
+                        dx: (Math.random() - 0.5) * 10,
+                        dy: (Math.random() - 0.5) * 10,
+                    });
+                }
+            }
+
+            let frame = 0;
+            function animatePieces() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawPlayer(player1);
+                drawPlayer(player2);
+                pieces.forEach(piece => {
+                    piece.x += piece.dx;
+                    piece.y += piece.dy;
+                    ctx.drawImage(player.image, piece.x, piece.y, piece.width, piece.height);
                 });
+                frame++;
+                if (frame < 100) {
+                    requestAnimationFrame(animatePieces);
+                } else {
+                    callback();
+                }
+            }
+
+            animatePieces();
+        }
+
+        document.getElementById('up').addEventListener('click', () => {
+            player1.y -= 20; // Игрок 1 двигается быстрее в два раза
+            if (player1.y < topBoundary) player1.y = topBoundary; // Ограничение сверху
+        });
+
+        document.getElementById('down').addEventListener('click', () => {
+            player1.y += 20; // Игрок 1 двигается быстрее в два раза
+            if (player1.y + player1.height > bottomBoundary) player1.y = bottomBoundary - player1.height; // Ограничение снизу
+        });
+
+        document.getElementById('throw').addEventListener('click', () => {
+            player1.apples.push({ x: player1.x + player1.width, y: player1.y + player1.height / 2, width: 20, height: 20, speed: 5, rotation: 0 });
+        });
+
+        document.getElementById('start').addEventListener('click', () => {
+            if (!gameRunning) {
+                gameRunning = true;
+                gameTime = 30;
+                startTimer();
+                gameLoop();
+            }
+            gamePaused = false;
+        });
+
+        document.getElementById('pause').addEventListener('click', () => {
+            gamePaused = true;
+        });
+
+        document.getElementById('restart').addEventListener('click', () => {
+            resetGame();
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowUp') {
+                player1.y -= 20; // Игрок 1 двигается быстрее в два раза
+                if (player1.y < topBoundary) player1.y = topBoundary; // Ограничение сверху
+            } else if (event.key === 'ArrowDown') {
+                player1.y += 20; // Игрок 1 двигается быстрее в два раза
+                if (player1.y + player1.height > bottomBoundary) player1.y = bottomBoundary - player1.height; // Ограничение снизу
+            } else if (event.key === ' ') {
+                player1.apples.push({ x: player1.x + player1.width, y: player1.y + player1.height / 2, width: 20, height: 20, speed: 5, rotation: 0 });
+            }
+        });
+
+        function checkCollision(player1, player2) {
+            return (
+                player1.x < player2.x + player2.width &&
+                player1.x + player1.width > player2.x &&
+                player1.y < player2.y + player2.height &&
+                player1.y + player1.height > player2.y
+            );
+        }
+
+        function moveAI(player) {
+            if (Math.random() < 0.5) {
+                player.direction = Math.random() < 0.5 ? 1 : -1;
+            }
+            player.y += player.direction * 2; // Плавное движение вверх и вниз
+            if (player.y < topBoundary) {
+                player.y = topBoundary;
+                player.direction = 1;
+            }
+            if (player.y + player.height > bottomBoundary) {
+                player.y = bottomBoundary - player.height;
+                player.direction = -1;
+            }
+
+            if (Math.random() < 0.025) { // Игрок 2 кидает яблоки в два раза реже
+                player.apples.push({ x: player.x, y: player.y + player.height / 2, width: 20, height: 20, speed: -5, rotation: 0 });
+            }
+
+            if (Math.random() < 0.01) {
+                setTimeout(() => {
+                    player.direction = Math.random() < 0.5 ? 1 : -1;
+                }, 2000);
+            }
+        }
+
+        function moveApples() {
+            player1.apples.forEach(apple => {
+                apple.x += apple.speed;
+                apple.rotation += 0.1;
+            });
+            player2.apples.forEach(apple => {
+                apple.x += apple.speed;
+                apple.rotation += 0.1;
             });
 
-            balance -= BET_AMOUNT;
+            player1.apples = player1.apples.filter(apple => apple.x < canvas.width);
+            player2.apples = player2.apples.filter(apple => apple.x > 0);
+        }
 
-            setTimeout(() => {
-                if (results.every((result, index) => result[1] === results[0][1])) {
-                    balance += BET_AMOUNT * 10; // Пример выплаты
+        function checkAppleHits() {
+            player1.apples.forEach((apple, index) => {
+                if (apple.x < player2.x + player2.width && apple.x + apple.width > player2.x && apple.y < player2.y + player2.height && apple.y + apple.height > player2.y) {
+                    player1.score++;
+                    player1.apples.splice(index, 1);
+                    hitSound.play();
+                    updateHealthDisplay();
                 }
-                balanceElement.innerText = balance;
-            }, 500);
+            });
+
+            player2.apples.forEach((apple, index) => {
+                if (apple.x < player1.x + player1.width && apple.x + apple.width > player1.x && apple.y < player1.y + player1.height && apple.y + apple.height > player1.y) {
+                    player2.score++;
+                    player2.apples.splice(index, 1);
+                    hitSound.play();
+                    updateHealthDisplay();
+                }
+            });
+        }
+
+        function checkWinCondition() {
+            if (gameTime <= 0) {
+                endGame();
+            }
+        }
+
+        function resetGame() {
+            clearInterval(timerInterval);
+            gameRunning = false;
+            player1.score = 0;
+            player2.score = 0;
+            player1.apples = [];
+            player2.apples = [];
+            player1.x = 100;
+            player1.y = 300;
+            player2.x = 650;
+            player2.y = 300;
+            player2.direction = 1;
+            player1.visible = true;
+            player2.visible = true;
+            gameTime = 30;
+            updateHealthDisplay();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPlayer(player1);
+            drawPlayer(player2);
+        }
+
+        window.onload = function() {
+            updateHealthDisplay();
+            drawPlayer(player1);
+            drawPlayer(player2);
         }
     </script>
 </body>
