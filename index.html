@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Слот для казино KAIROS</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            margin: 0;
+        }
+        .slot-machine {
+            text-align: center;
+        }
+        .reels {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .reel {
+            width: 100px;
+            height: 300px;
+            margin: 0 10px;
+            overflow: hidden;
+            position: relative;
+        }
+        .reel div {
+            width: 100%;
+            height: 100px;
+            background-size: cover;
+            position: absolute;
+            transition: top 0.5s;
+        }
+        .balance {
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="slot-machine">
+        <h1>Слот для казино KAIROS</h1>
+        <div class="reels">
+            <div class="reel" id="reel1">
+                <div style="top: 0;"></div>
+                <div style="top: 100px;"></div>
+                <div style="top: 200px;"></div>
+            </div>
+            <div class="reel" id="reel2">
+                <div style="top: 0;"></div>
+                <div style="top: 100px;"></div>
+                <div style="top: 200px;"></div>
+            </div>
+            <div class="reel" id="reel3">
+                <div style="top: 0;"></div>
+                <div style="top: 100px;"></div>
+                <div style="top: 200px;"></div>
+            </div>
+        </div>
+        <div class="balance">
+            Баланс: $<span id="balance">100</span>
+        </div>
+        <button onclick="spin()">Спин</button>
+    </div>
+
+    <script>
+        const symbols = ['fruit', 'bell', 'seven', 'coin', 'star', 'diamond'];
+        const symbolImages = {
+            'fruit': 'fruit.png',
+            'bell': 'bell.png',
+            'seven': 'seven.png',
+            'coin': 'coin.png',
+            'star': 'star.png',
+            'diamond': 'diamond.png'
+        };
+        const BET_AMOUNT = 10;
+        let balance = 100;
+
+        function getRandomSymbol() {
+            return symbols[Math.floor(Math.random() * symbols.length)];
+        }
+
+        function spin() {
+            const reels = [
+                document.getElementById('reel1'),
+                document.getElementById('reel2'),
+                document.getElementById('reel3')
+            ];
+            const balanceElement = document.getElementById('balance');
+
+            let results = [];
+
+            reels.forEach(reel => {
+                let result = [getRandomSymbol(), getRandomSymbol(), getRandomSymbol()];
+                results.push(result);
+                result.forEach((symbol, index) => {
+                    let div = reel.children[index];
+                    div.style.backgroundImage = `url(${symbolImages[symbol]})`;
+                    div.style.top = `${index * 100}px`;
+                });
+            });
+
+            balance -= BET_AMOUNT;
+
+            setTimeout(() => {
+                if (results.every((result, index) => result[1] === results[0][1])) {
+                    balance += BET_AMOUNT * 10; // Пример выплаты
+                }
+                balanceElement.innerText = balance;
+            }, 500);
+        }
+    </script>
+</body>
+</html>
